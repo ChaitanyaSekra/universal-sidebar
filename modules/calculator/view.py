@@ -10,6 +10,12 @@ Full calculator module:
 
 All math goes through engine.evaluate(), which never calls bare eval() --
 see engine.py for why.
+
+Redesign notes: button grid now distinguishes digits / operators / equals
+by objectName (CalcDigit / CalcOperator / CalcEquals -- styled in
+ui/theme.py) instead of every button looking identical, which is the
+"rich/dashboard, more visual detail" direction. Mode toggle and copy
+controls got icons instead of being plain text buttons.
 """
 
 from PySide6.QtWidgets import (
@@ -22,7 +28,15 @@ from PySide6.QtGui import QGuiApplication, QFont
 from modules.base_module import BaseModule
 from modules.calculator.engine import evaluate, CalculatorError
 from modules.calculator import storage as calc_storage
+from ui.icon_loader import get_icon, icon_size
+from ui.theme import PALETTE
 
+ICON_PX = 16
+
+# Each row is (label, object_name) so the grid builder can apply the right
+# visual treatment per button without string-matching labels at paint time.
+OPERATOR_LABELS = {"C", "⌫", "%", "÷", "×", "−", "+", "^", "(", ")"}
+EQUALS_LABEL = "="
 
 BASIC_BUTTONS = [
     ["C", "⌫", "%", "÷"],
@@ -55,8 +69,8 @@ class CalculatorModule(BaseModule):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(10)
 
         self.expression_label = QLabel("")
         self.expression_label.setObjectName("MutedLabel")
@@ -64,6 +78,7 @@ class CalculatorModule(BaseModule):
         root.addWidget(self.expression_label)
 
         self.display = QLineEdit()
+        self.display.setObjectName("CalcDisplay")
         self.display.setAlignment(Qt.AlignRight)
         self.display.setFont(QFont("Segoe UI", 22))
         self.display.textEdited.connect(self._on_display_edited)
@@ -71,18 +86,27 @@ class CalculatorModule(BaseModule):
         root.addWidget(self.display)
 
         controls = QHBoxLayout()
-        self.mode_btn = QPushButton("Scientific mode")
+        self.mode_btn = QPushButton("  Scientific mode")
+        self.mode_btn.setObjectName("SecondaryButton")
+        self.mode_btn.setIcon(get_icon("calculator", PALETTE["accent_fg"], ICON_PX))
+        self.mode_btn.setIconSize(icon_size(ICON_PX))
         self.mode_btn.clicked.connect(self._toggle_mode)
         controls.addWidget(self.mode_btn)
         controls.addStretch(1)
-        copy_btn = QPushButton("Copy result")
+
+        copy_btn = QPushButton()
+        copy_btn.setObjectName("IconButton")
+        copy_btn.setIcon(get_icon("clipboard", PALETTE["text_muted"], ICON_PX))
+        copy_btn.setIconSize(icon_size(ICON_PX))
+        copy_btn.setFixedSize(36, 36)
+        copy_btn.setToolTip("Copy result")
         copy_btn.clicked.connect(self._copy_result)
         controls.addWidget(copy_btn)
         root.addLayout(controls)
 
         self.grid_container = QWidget()
         self.grid_layout = QGridLayout(self.grid_container)
-        self.grid_layout.setSpacing(6)
+        self.grid_layout.setSpacing(8)
         root.addWidget(self.grid_container)
         self._build_button_grid()
 
@@ -91,8 +115,13 @@ class CalculatorModule(BaseModule):
         history_label.setObjectName("MutedLabel")
         history_header.addWidget(history_label)
         history_header.addStretch(1)
-        clear_btn = QPushButton("Clear")
-        clear_btn.setObjectName("DangerButton")
+        clear_btn = QPushButton()
+        clear_btn.setObjectName("IconButton")
+        clear_btn.setProperty("danger", "true")
+        clear_btn.setIcon(get_icon("trash", PALETTE["danger_fg"], 14))
+        clear_btn.setIconSize(icon_size(14))
+        clear_btn.setFixedSize(30, 30)
+        clear_btn.setToolTip("Clear history")
         clear_btn.clicked.connect(self._clear_history)
         history_header.addWidget(clear_btn)
         root.addLayout(history_header)
@@ -116,13 +145,19 @@ class CalculatorModule(BaseModule):
         for row_idx, row in enumerate(rows):
             for col_idx, label in enumerate(row):
                 btn = QPushButton(label)
-                btn.setFixedHeight(40)
+                btn.setFixedHeight(44)
+                if label == EQUALS_LABEL:
+                    btn.setObjectName("CalcEquals")
+                elif label in OPERATOR_LABELS:
+                    btn.setObjectName("CalcOperator")
+                else:
+                    btn.setObjectName("CalcDigit")
                 btn.clicked.connect(lambda checked, l=label: self._on_button(l))
                 self.grid_layout.addWidget(btn, row_idx, col_idx)
 
     def _toggle_mode(self):
         self._scientific = not self._scientific
-        self.mode_btn.setText("Basic mode" if self._scientific else "Scientific mode")
+        self.mode_btn.setText("  Basic mode" if self._scientific else "  Scientific mode")
         self._build_button_grid()
 
     # -- input handling -----------------------------------------------------

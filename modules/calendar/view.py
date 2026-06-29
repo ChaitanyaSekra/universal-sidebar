@@ -11,6 +11,11 @@ No local-only event storage is used for this module (the user chose
 the `calendar_events` table created in storage/database.py is unused by
 this view; it's left in the schema in case a future "offline notes on
 dates" feature wants it.
+
+Redesign notes: "+ New event" and "Delete selected" are now icon buttons
+instead of full-width text buttons, matching the icon-button language
+used in Notes/Calculator, and the connect button gets a calendar icon so
+the connection bar doesn't read as plain unstyled text.
 """
 
 from datetime import datetime, timedelta
@@ -25,6 +30,10 @@ from modules.base_module import BaseModule
 from modules.calendar import google_auth, google_service
 from modules.calendar.workers import run_async
 from modules.calendar.event_dialog import EventDialog
+from ui.icon_loader import get_icon, icon_size
+from ui.theme import PALETTE
+
+ICON_PX = 16
 
 
 class CalendarModule(BaseModule):
@@ -42,8 +51,8 @@ class CalendarModule(BaseModule):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(10)
 
         # Connection bar
         conn_row = QHBoxLayout()
@@ -51,7 +60,10 @@ class CalendarModule(BaseModule):
         self.status_label.setObjectName("MutedLabel")
         conn_row.addWidget(self.status_label)
         conn_row.addStretch(1)
-        self.connect_btn = QPushButton("Connect Google Calendar")
+        self.connect_btn = QPushButton("  Connect Google Calendar")
+        self.connect_btn.setObjectName("SecondaryButton")
+        self.connect_btn.setIcon(get_icon("calendar", PALETTE["accent_fg"], ICON_PX))
+        self.connect_btn.setIconSize(icon_size(ICON_PX))
         self.connect_btn.clicked.connect(self._on_connect_clicked)
         conn_row.addWidget(self.connect_btn)
         root.addLayout(conn_row)
@@ -67,7 +79,12 @@ class CalendarModule(BaseModule):
         self.day_label = QLabel("")
         day_header.addWidget(self.day_label)
         day_header.addStretch(1)
-        add_btn = QPushButton("+ New event")
+        add_btn = QPushButton()
+        add_btn.setObjectName("IconButton")
+        add_btn.setIcon(get_icon("plus", PALETTE["accent_fg"], ICON_PX))
+        add_btn.setIconSize(icon_size(ICON_PX))
+        add_btn.setFixedSize(34, 34)
+        add_btn.setToolTip("New event")
         add_btn.clicked.connect(self._on_add_event)
         day_header.addWidget(add_btn)
         root.addLayout(day_header)
@@ -78,8 +95,13 @@ class CalendarModule(BaseModule):
 
         actions_row = QHBoxLayout()
         actions_row.addStretch(1)
-        delete_btn = QPushButton("Delete selected")
-        delete_btn.setObjectName("DangerButton")
+        delete_btn = QPushButton()
+        delete_btn.setObjectName("IconButton")
+        delete_btn.setProperty("danger", "true")
+        delete_btn.setIcon(get_icon("trash", PALETTE["danger_fg"], ICON_PX))
+        delete_btn.setIconSize(icon_size(ICON_PX))
+        delete_btn.setFixedSize(34, 34)
+        delete_btn.setToolTip("Delete selected event")
         delete_btn.clicked.connect(self._on_delete_event)
         actions_row.addWidget(delete_btn)
         root.addLayout(actions_row)
@@ -88,7 +110,7 @@ class CalendarModule(BaseModule):
 
     def _refresh_connection_state(self):
         connected = google_auth.is_connected()
-        self.connect_btn.setText("Disconnect" if connected else "Connect Google Calendar")
+        self.connect_btn.setText("  Disconnect" if connected else "  Connect Google Calendar")
         self.status_label.setText(
             "Connected to Google Calendar" if connected
             else "Not connected -- showing nothing until you connect"
