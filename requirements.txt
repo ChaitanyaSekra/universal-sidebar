@@ -1,0 +1,5 @@
+PySide6==6.7.2
+keyboard==0.13.5
+google-auth==2.32.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.137.0
